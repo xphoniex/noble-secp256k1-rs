@@ -1,0 +1,21 @@
+[package]
+name = "noble-secp256k1"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+#fixed-bigint = { version = "0.1.9", default-features = false }
+awint = { version = "0.7.0", default-features = false }
+
+[features]
+#default = ["jacobian", "8-bit", "std"]
+default = ["8-bit", "std"]
+#default = ["jacobian", "8-bit"]
+#default = ["32-bit"]
+8-bit = []
+32-bit = []
+jacobian = []
+std = [] # fmt::Display
+
+[profile.release]
+#debug = true
