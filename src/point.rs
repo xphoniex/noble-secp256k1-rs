@@ -56,9 +56,10 @@ impl Point {
     */
 
     // assumes `x1`, `y1`, and `p` are all 512 bits
+    //#[inline]
     fn double_assign_mod(&mut self, p: &BigNum) {
-        let x1 = self.x;
-        let y1 = self.y;
+        //let x1 = &mut self.x;
+        //let y1 = &mut self.y;
         //let p = &SECP256K1.P;
 
         // in this first part, we are calculating
@@ -66,12 +67,16 @@ impl Point {
 
         // int0 = (x1 * x1) % p
         let mut pad = inlawi!(0u512);
-        let mut x1_copy = inlawi!(x1; ..512).unwrap();
-        x1_copy.mul_assign(&x1, &mut pad).unwrap();
+        //let mut x1_copy = inlawi!(x1; ..512).unwrap();
+        let mut x1_copy = inlawi!(&self.x; ..512).unwrap();
+        //x1_copy.mul_assign(&x1, &mut pad).unwrap();
+        x1_copy.mul_assign(&self.x, &mut pad).unwrap();
         // just renaming, this is zero cost if we don't use x1_copy later
-        let x1_squared = x1_copy;
+        let x1_squared = &mut x1_copy;
         let mut int0 = inlawi!(0u512);
-        Bits::udivide(&mut pad, &mut int0, &x1_squared, &p).unwrap();
+        Bits::udivide(&mut pad, &mut int0, x1_squared, &p).unwrap();
+        //Bits::udivide(&mut pad, &mut int0, &x1_copy, p).unwrap();
+        //assert!(false);
         // x1_squared, pad, int0 are live (192 bytes)
 
         // int1 = (3 * into) % p
@@ -80,7 +85,7 @@ impl Point {
         Bits::udivide(&mut pad, &mut int1, &int0, &p).unwrap();
         // int1, pad, int0 are live (192 bytes)
 
-        let mut y1_copy = inlawi!(y1; ..512).unwrap();
+        let mut y1_copy = inlawi!(self.y; ..512).unwrap();
         // equivalent to multiplying by 2
         y1_copy.shl_assign(1).unwrap();
         let mut y1_mul2 = y1_copy;
@@ -91,9 +96,9 @@ impl Point {
 
         // int2 = (int1 * invert_result) % p;
         invert_result.mul_assign(&int1, &mut pad).unwrap();
-        let mut int2 = int0;
+        let mut int2 = &mut int0;
         Bits::udivide(&mut pad, &mut int2, &invert_result, &p).unwrap();
-        let mut lam = int2;
+        let lam = int2;
         // int1, pad, lam, invert_result are live (192 bytes)
 
         // in this next part we are calculating
@@ -112,10 +117,12 @@ impl Point {
         cc!(lam; lam_copy).unwrap();
         lam_copy.mul_assign(&lam, &mut pad).unwrap();
         let mut lam_squared = lam_copy;
-        lam_squared.sub_assign(&x1).unwrap();
+        //lam_squared.sub_assign(&x1).unwrap();
+        lam_squared.sub_assign(&self.x).unwrap();
         // we would have to copy anyway, just subtract twice
-        lam_squared.sub_assign(&x1).unwrap();
-        let mut x3 = int1;
+        //lam_squared.sub_assign(&x1).unwrap();
+        lam_squared.sub_assign(&self.x).unwrap();
+        //let mut x3 = int1;
         Bits::udivide(&mut pad, &mut self.x, &lam_squared, &p).unwrap();
         // x3, pad, lam, lam_squared are live (192 bytes)
 
@@ -124,14 +131,17 @@ impl Point {
         //   - y1
         // ) % p
         let mut tmp = lam_squared;
-        cc!(x1; tmp).unwrap();
+        //cc!(x1; tmp).unwrap();
+        cc!(self.x; tmp).unwrap();
         tmp.sub_assign(&self.x).unwrap();
-        if x1.ult(&self.x).unwrap() {
+        //if x1.ult(&self.x).unwrap() {
+        if tmp.ult(&self.x).unwrap() {
             tmp.add_assign(&p).unwrap();
         }
         lam.mul_assign(&tmp, &mut pad).unwrap();
-        lam.sub_assign(&y1).unwrap();
-        let mut y3 = tmp;
+        //lam.sub_assign(&y1).unwrap();
+        lam.sub_assign(&self.y).unwrap();
+        //let mut y3 = tmp;
         Bits::udivide(&mut pad, &mut self.y, &lam, &p).unwrap();
         //Bits::udivide(&mut pad, &mut y3, &lam, &p).unwrap();
 
@@ -248,6 +258,7 @@ impl Point {
         }
     */
 
+    // `other` is only mut because of `.neg_assing()` otherwise doesn't change
     #[inline]
     fn add_assign_mod(&mut self, other: &mut Point, p: &BigNum) {
         let X1 = &self.x;
@@ -273,8 +284,10 @@ impl Point {
 
         Y2.neg_assign(true);
         if X1 == X2 && Y1 == Y2 {
-            self.x = BigNum::zero();
-            self.y = BigNum::zero();
+            //self.x = BigNum::zero();
+            //self.y = BigNum::zero();
+            self.x.zero_assign();
+            self.y.zero_assign();
             return;
         }
         Y2.neg_assign(false);
@@ -331,6 +344,7 @@ impl Point {
     }
 
     #[inline]
+    //pub fn multiply_DA(&self, n: &mut BigNum, P: &BigNum) -> Point {
     pub fn multiply_DA(&self, n: &mut BigNum, P: &BigNum) -> Point {
         let mut p = Self::zero();
         let mut d = self.clone();
@@ -348,25 +362,25 @@ impl Point {
     }
 
     /*
-    pub fn multiply_JDA(&self, mut n: BigNum, P: &BigNum) -> Point {
-        use crate::jacobian::JacobianPoint;
+        pub fn multiply_JDA(&self, mut n: BigNum, P: &BigNum) -> Point {
+            use crate::jacobian::JacobianPoint;
 
-        let mut p = JacobianPoint::zero();
-        let mut d = JacobianPoint::from_affine(self.clone());
+            let mut p = JacobianPoint::zero();
+            let mut d = JacobianPoint::from_affine(self.clone());
 
-        while !n.is_zero() {
-            if n & BigNum::one() > BigNum::zero() {
-                p = p.add(d.clone(), P);
+            while !n.is_zero() {
+                if n & BigNum::one() > BigNum::zero() {
+                    p = p.add(d.clone(), P);
+                }
+                let d_d = d.double(P);
+                d = d_d;
+                n >>= 1_usize;
             }
-            let d_d = d.double(P);
-            d = d_d;
-            n >>= 1_usize;
+
+            //println!("to affine");
+
+            p.to_affine(P)
         }
-
-        //println!("to affine");
-
-        p.to_affine(P)
-    }
 
     pub fn as_hex(&self, buf: &mut [u8; 128]) {
         self.x.to_hex_str(&mut buf[0..64]).unwrap();

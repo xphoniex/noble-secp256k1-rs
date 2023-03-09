@@ -4,8 +4,8 @@ use crate::{BigNum, Point};
 
 pub struct Curve {
     pub G: Point,
-    pub P: BigNum,
-    _n: BigNum,
+    P: BigNum,
+    //n: BigNum,
 }
 
 impl Curve {
@@ -15,9 +15,10 @@ impl Curve {
             y: inlawi!(0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8_u512),
         };
         let P = inlawi!(0xfffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f_u512);
-        let _n = inlawi!(0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141_u512);
+        //let n = inlawi!(0xfffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141_u512);
 
-        Curve { G, P, _n }
+        //Curve { G, P, n }
+        Curve { G, P }
     }
 
     /// Returns `G * n mod P` using simple multiplication.
